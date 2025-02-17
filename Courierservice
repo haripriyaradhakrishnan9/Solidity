@@ -1,0 +1,148 @@
+package _Courierservice;
+
+
+import org.hyperledger.fabric.contract.annotation.DataType;
+import org.hyperledger.fabric.contract.annotation.Property;
+
+ 
+@DataType()
+public final class Courier {
+	    @Property
+	    private final String id;
+
+	    @Property
+	    private final String sender;
+
+	    @Property
+	    private final String receiver;
+
+	    @Property
+	    private String location;
+
+	    @Property
+	    private String currentStatus;
+
+	    public Courier(String id, String sender, String receiver, String location, String currentStatus) {
+	        this.id = id;
+	        this.sender = sender;
+	        this.receiver = receiver;
+	        this.location = location;
+	        this.currentStatus = currentStatus;
+	    }
+
+	    public void setLocation(String location) {
+	        this.location = location;
+	    }
+
+	    public void setStatus(String currentStatus) {
+	        this.currentStatus = currentStatus;
+	    }
+	}
+package _Courierservice;
+
+import org.hyperledger.fabric.contract.Context;
+import org.hyperledger.fabric.contract.ContractInterface;
+import org.hyperledger.fabric.contract.annotation.Contract;
+import org.hyperledger.fabric.contract.annotation.Default;
+import org.hyperledger.fabric.contract.annotation.Info;
+import org.hyperledger.fabric.contract.annotation.Transaction;
+import org.hyperledger.fabric.shim.ChaincodeException;
+import org.hyperledger.fabric.shim.ChaincodeStub;
+import com.owlike.genson.Genson;
+ 
+ 
+@Contract(
+        name = "Courierservice",
+        info = @Info(
+                title = "Courierservice contract",
+                description = "A Sample Courier service chaincode example",
+                version = "0.0.1-SNAPSHOT"))
+
+@Default
+public final class ParcelContract implements ContractInterface {
+ 
+	private final Genson genson = new Genson();
+	private enum CourierServiceErrors {
+	        Parcel_ALREADY_EXISTS,
+	        Parcel_NOT_FOUND
+	    }
+	
+	
+	/**
+     * Add some initial properties to the ledger
+     *
+     * @param ctx the transaction context
+     */
+    @Transaction()
+    public void initLedger(final Context ctx) {
+    	
+      
+    }
+    
+    
+    /**
+     * Initiate Parcel
+     *
+     * @param ctx the transaction context
+     * @param id the key for initiating parcel
+     */
+	
+    @Transaction()
+    public void initiateParcel(Context ctx, String id, String sender, String receiver, String location, String currentStatus) {
+        ChaincodeStub stub = ctx.getStub();
+    if (stub.getStringState(id) != null && !stub.getStringState(id).isEmpty()) {
+    	String errorMessage = String.format("Parcel %s already exist", id);
+           System.out.println(errorMessage);
+           throw new ChaincodeException(errorMessage, CourierServiceErrors.Parcel_ALREADY_EXISTS.toString());
+        }
+ 
+    Courier courier = new Courier(id, sender, receiver, location, currentStatus);
+    String jsonCourier = genson.serialize(courier);
+    stub.putStringState(id, jsonCourier);
+}
+    	/**
+	     * Update current status of parcel
+	     *
+	     * @param ctx the transaction context
+	     * @param id the key
+	     */
+    @Transaction()
+    public void updateCurrentStatus(Context ctx, String id, String nextLocation, String nextStatus) {
+        ChaincodeStub stub = ctx.getStub();
+        String courierState = stub.getStringState(id);
+
+        if (courierState == null || courierState.isEmpty()) {
+            String errorMessage = String.format("Parcel %s not found", id);
+            System.out.println(errorMessage);
+            throw new ChaincodeException(errorMessage, CourierServiceErrors.Parcel_NOT_FOUND.toString());
+        }
+
+        Courier courier = genson.deserialize(courierState, Courier.class);
+        courier.setLocation(nextLocation);
+        courier.setStatus(nextStatus);
+
+        String updatedCourier = genson.serialize(courier);
+        stub.putStringState(id, updatedCourier);
+    }
+
+    	
+        /**
+   	     * Track Courier
+   	     *
+   	     * @param ctx the transaction context
+   	     * @param id the key
+   	     */
+    @Transaction()
+    public String trackCourier(Context ctx, String id) {
+        ChaincodeStub stub = ctx.getStub();
+        String courierState = stub.getStringState(id);
+
+        if (courierState == null || courierState.isEmpty()) {
+            String errorMessage = String.format("Parcel %s not found", id);
+            System.out.println(errorMessage);
+            throw new ChaincodeException(errorMessage, CourierServiceErrors.Parcel_NOT_FOUND.toString());
+        }
+
+        return courierState;
+    }
+}
